@@ -854,7 +854,9 @@ MKIMAGEFLAGS_u-boot.pbl = -n $(srctree)/$(CONFIG_SYS_FSL_PBL_RCW:"%"=%) \
 
 u-boot.img u-boot.kwb u-boot.pbl: u-boot.bin FORCE
 	$(call if_changed,mkimage)
-	tools/env/fw_printenv -d > u-boot-env.txt
+	ln -sf tools/env/fw_printenv_host fw_printenv
+	./fw_printenv -d > $(obj)/u-boot-env.txt
+	unlink fw_printenv
 
 MKIMAGEFLAGS_u-boot-dtb.img = $(MKIMAGEFLAGS_u-boot.img)
 
