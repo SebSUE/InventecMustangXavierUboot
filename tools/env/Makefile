@@ -25,7 +25,7 @@ endif
 always := fw_printenv_host fw_printenv
 
 $(obj)/fw_printenv: FORCE
-	$(CC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $(HOSTSRCS)
+	$(CC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -march=armv7-a -mfloat-abi=hard -mfpu=neon -mtune=cortex-a8 -o $@ $(HOSTSRCS)
 
 $(obj)/fw_printenv_host: FORCE
 	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $(HOSTSRCS)
