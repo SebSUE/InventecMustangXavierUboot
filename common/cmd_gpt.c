@@ -11,6 +11,10 @@
 #include <common.h>
 #include <malloc.h>
 #include <command.h>
+#ifdef CONFIG_CMD_EMMC
+#include <mmc.h>
+#include <gpt.h>
+#endif
 #include <part_efi.h>
 #include <exports.h>
 #include <linux/ctype.h>
@@ -154,17 +158,24 @@ static int set_gpt_info(block_dev_desc_t *dev_desc,
 
 	/* extract disk guid */
 	s = str;
-	tok = strsep(&s, ";");
-	val = extract_val(tok, "uuid_disk");
+	val = extract_val(str, "uuid_disk");
 	if (!val) {
+#ifdef CONFIG_RANDOM_UUID
+		*str_disk_guid = malloc(UUID_STR_LEN + 1);
+		gen_rand_uuid_str(*str_disk_guid, UUID_STR_FORMAT_STD);
+#else
 		free(str);
 		return -2;
+#endif
+	} else {
+		val = strsep(&val, ";");
+		if (extract_env(val, &p))
+			p = val;
+		*str_disk_guid = strdup(p);
+		free(val);
+		/* Move s to first partition */
+		strsep(&s, ";");
 	}
-	if (extract_env(val, &p))
-		p = val;
-	*str_disk_guid = strdup(p);
-	free(val);
-
 	if (strlen(s) == 0)
 		return -3;
 
@@ -192,20 +203,25 @@ static int set_gpt_info(block_dev_desc_t *dev_desc,
 
 		/* uuid */
 		val = extract_val(tok, "uuid");
-		if (!val) { /* 'uuid' is mandatory */
+		if (!val) {
+			/* 'uuid' is optional if random uuid's are enabled */
+#ifdef CONFIG_RANDOM_UUID
+			gen_rand_uuid_str(parts[i].uuid, UUID_STR_FORMAT_STD);
+#else
 			errno = -4;
 			goto err;
+#endif
+		} else {
+			if (extract_env(val, &p))
+				p = val;
+			if (strlen(p) >= sizeof(parts[i].uuid)) {
+				printf("Wrong uuid format for partition %d\n", i);
+				errno = -4;
+				goto err;
+			}
+			strcpy((char *)parts[i].uuid, p);
+			free(val);
 		}
-		if (extract_env(val, &p))
-			p = val;
-		if (strlen(p) >= sizeof(parts[i].uuid)) {
-			printf("Wrong uuid format for partition %d\n", i);
-			errno = -4;
-			goto err;
-		}
-		strcpy((char *)parts[i].uuid, p);
-		free(val);
-
 		/* name */
 		val = extract_val(tok, "name");
 		if (!val) { /* name is mandatory */
@@ -281,12 +297,104 @@ static int gpt_default(block_dev_desc_t *blk_dev_desc, const char *str_part)
 	}
 
 	/* save partitions layout to disk */
-	gpt_restore(blk_dev_desc, str_disk_guid, partitions, part_count);
+	ret = gpt_restore(blk_dev_desc, str_disk_guid, partitions, part_count);
 	free(str_disk_guid);
 	free(partitions);
 
+	return ret;
+}
+
+#ifdef CONFIG_CMD_EMMC
+/* Global copy of gpt table in ram */
+static efi_ptable gpt;
+
+/*
+ * Enumerate partition names into environment variable.
+*/
+static int gpt_enumerate(u32 num_entries, efi_gpt_entry_t *entry)
+{
+	int i, j;
+
+	char sectname[36];
+	char part_list[2048];
+	part_list[0] = 0;
+
+	for (i = 0; i < num_entries; entry++, i++) {
+		/* Set the name */
+		memset(sectname, 0, sizeof(sectname));
+
+		/* Convert unicode name to simple char * name */
+		for (j = 0; j < (sizeof(sectname) - 1); j++) {
+			if (entry->partition_name[j])
+				sectname[j] = entry->partition_name[j];
+		}
+		sectname[sizeof(sectname) - 1] = '\0';
+		strcat(part_list, sectname);
+		strcat(part_list, " ");
+	}
+	part_list[strlen(part_list)-1] = 0;
+	debug("setenv gpt_partition_list %s\n", part_list);
+	setenv("gpt_partition_list", part_list);
+
 	return 0;
 }
+
+
+/*
+ * Dynamically setup environment variables for offsets and sizes discovered in
+ * GPT table after running "gpt setenv" for a partition name,
+ * gpt_partition_addr and gpt_partition_size environment variables will be set.
+*/
+static int gpt_setenv(const char *name, u32 num_entries, efi_gpt_entry_t *entry)
+{
+	int i, j;		/* loop counters */
+	u64 starting_lba;	/* starting sector */
+	u64 ending_lba;		/* ending sector */
+
+	char sectname[36];	/* ascii name */
+	u64 length;		/* size in 512 byte sectors */
+	char startbuf[32];
+	char sizebuf[32];
+
+	for (i = 0; i < num_entries; entry++, i++) {
+		/* Set the name */
+		memset(sectname, 0, sizeof(sectname));
+
+		/* Convert unicode name to simple char * name */
+		for (j = 0; j < (sizeof(sectname) - 1); j++) {
+			if (entry->partition_name[j])
+				sectname[j] = entry->partition_name[j];
+		}
+		sectname[sizeof(sectname) - 1] = '\0';
+
+		/* Get the start/end sectors. */
+		starting_lba = le64_to_cpu(entry->starting_lba);
+		ending_lba = le64_to_cpu(entry->ending_lba);
+
+		/* Calculate the total length in sectors */
+		length = ending_lba + 1 - starting_lba;
+
+		if (!strcmp(name, sectname)) {
+			/* Match found, setup environment variables */
+			/* create name_start, name_size and assign values */
+			sprintf(startbuf, "%llx", starting_lba);
+			debug("setenv gpt_partition_addr %s\n", startbuf);
+			setenv("gpt_partition_addr", startbuf);
+			sprintf(sizebuf, "%llx", length);
+			debug("setenv gpt_partition_size %s\n", sizebuf);
+			setenv("gpt_partition_size", sizebuf);
+			sprintf(sizebuf, "%d", i+1);
+			debug("setenv gpt_partition_entry %s\n", sizebuf);
+			setenv("gpt_partition_entry", sizebuf);
+			sprintf(sizebuf, "%s", sectname);
+			debug("setenv gpt_partition_name %s\n", sizebuf);
+			setenv("gpt_partition_name", sizebuf);
+			return 0;
+		}
+	}
+	return -1;
+}
+#endif
 
 /**
  * do_gpt(): Perform GPT operations
@@ -304,9 +412,19 @@ static int do_gpt(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	int dev = 0;
 	char *ep;
 	block_dev_desc_t *blk_dev_desc;
+#ifdef CONFIG_CMD_EMMC
+	efi_ptable *ptbl = &gpt;	/* gpt table image in ram */
+	u32 num_entries;
+	efi_gpt_entry_t *entry;
 
+	if (argc < 2)
+		return CMD_RET_USAGE;
+
+	ret = gpt_get_table(ptbl, &num_entries, &entry);
+#else
 	if (argc < 5)
 		return CMD_RET_USAGE;
+#endif
 
 	/* command: 'write' */
 	if ((strcmp(argv[1], "write") == 0) && (argc == 5)) {
@@ -332,6 +450,20 @@ static int do_gpt(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 			puts("error!\n");
 			return CMD_RET_FAILURE;
 		}
+#ifdef CONFIG_CMD_EMMC
+	} else if (strcmp(argv[1], "setenv") == 0) {
+		if (argc != 3)
+			return cmd_usage(cmdtp);
+		else
+			return gpt_setenv(argv[2], num_entries, entry);
+	} else if (strcmp(argv[1], "enumerate") == 0) {
+		if (argc != 2) {
+			return cmd_usage(cmdtp);
+		} else {
+			gpt_enumerate(num_entries, entry);
+			return 0;
+		}
+#endif
 	} else {
 		return CMD_RET_USAGE;
 	}
@@ -344,4 +476,10 @@ U_BOOT_CMD(gpt, CONFIG_SYS_MAXARGS, 1, do_gpt,
 	" - GUID partition table restoration\n"
 	" Restore GPT information on a device connected\n"
 	" to interface\n"
+#ifdef CONFIG_CMD_EMMC
+	"setenv [name]\n"
+	"    - setup env variables for one gpt section base, size, name, index\n"
+	"gpt enumerate\n"
+	"    - store list of partitions to gpt_partition_list environment variable\n"
+#endif
 );

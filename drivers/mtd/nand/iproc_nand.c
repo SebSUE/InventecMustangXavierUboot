@@ -5,7 +5,6 @@
  * SPDX-License-Identifier:      GPL-2.0+
  *
  */
-
 #include <asm/errno.h>
 #include <asm/io.h>
 #include <asm-generic/unaligned.h>
@@ -1227,9 +1226,11 @@ iproc_nand_get_cfg(struct iproc_nand_host *host, struct iproc_nand_cfg *cfg)
 
 static void iproc_nand_print_cfg(struct iproc_nand_cfg *cfg)
 {
-	printf("NAND %u-bit %lluMiB total, %uKiB blocks, %u%s pages\n"
+	printf("NAND %u-bit %u-addr-cycles\n"
+	       "     %lluMiB total %uKiB blocks, %u%s pages\n"
 	       "     %ubit/%uB %s-ECC %uB/512B OOB\n",
 	       cfg->device_width,
+	       cfg->ful_adr_bytes,
 	       (unsigned long long)cfg->device_size >> 20,
 	       cfg->block_size >> 10,
 	       cfg->page_size >= 1024 ? cfg->page_size >> 10 : cfg->page_size,
@@ -1363,13 +1364,6 @@ static int iproc_nand_setup_dev(struct iproc_nand_host *host)
 			    ctrl.data->strap_types[ctrl.strap_type].sector_1k;
 			new_cfg.ecc_level =
 			    ctrl.data->strap_types[ctrl.strap_type].ecc_level;
-			if (ctrl.strap_page_size == 0) {
-				new_cfg.blk_adr_bytes = 2;
-				new_cfg.ful_adr_bytes = 4;
-			} else {
-				new_cfg.blk_adr_bytes = 3;
-				new_cfg.ful_adr_bytes = 5;
-			}
 
 			/* Special case: using Hamming code */
 			if ((new_cfg.ecc_level == 15) &&

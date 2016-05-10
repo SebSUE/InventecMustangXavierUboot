@@ -40,6 +40,12 @@
 /* Enable emmc boot partition support */
 #define CONFIG_SUPPORT_EMMC_BOOT
 
+/* Enable emmc cmd */
+#define CONFIG_CMD_EMMC
+
+/* Enable gpt tools to generate UUID */
+#define CONFIG_RANDOM_UUID
+
 /* Set arm clock speed: 1000 = 1GHz */
 #define CONFIG_ARMCLK 1000
 
@@ -281,7 +287,9 @@
 
 #define BASE_INFO \
 	"loadaddr=63000000\0" \
-	"splashimage=61000000\0"
+	"splashimage=61000000\0" \
+	"emmcdev=0\0" \
+	"root_name=root\0"
 
 #define TFTP_PREFIX \
 	"tftp_prefix=cygnus\0"
@@ -447,6 +455,45 @@
 #define ETH_SETTINGS
 #endif
 
+#define MMC_GET_DTBLOB \
+"mmc_get_dtblob="\
+"mmc dev ${emmcdev}; "\
+"gpt enumerate; "\
+"gpt setenv dt-blob; "\
+"math mul maxdtblks ${gpt_partition_size} 200;"\
+"mmc read ${dtb_loadaddr} ${gpt_partition_addr} ${gpt_partition_size};"\
+"fdt addr ${dtb_loadaddr} ${maxdtblks}\0"
+
+
+/* Extract the root filesystem partiton number */
+/* Note that Android uses "debug" for its root, otherwise we use "root". */
+#define MMC_SET_ROOTDEV \
+"mmc_set_rootdev="\
+"gpt enumerate; "\
+"gpt setenv ${root_name}; "\
+"setenv rootdev /dev/mmcblk${emmcdev}p${gpt_partition_entry}\0"
+
+/* Common mmc bootargs, bootcommand and startup macros */
+#define MMC_BOOTARGS \
+"mmc_bootargs=root=${rootdev} rootfstype=ext4 gpt rootwait \0"
+
+#define MMC_START_KNL \
+"mmc_start_knl="\
+"mmc dev ${emmcdev}; "\
+"gpt enumerate; "\
+"gpt setenv kernel; "\
+"mmc read ${zimage_loadaddr} ${gpt_partition_addr} ${gpt_partition_size};"\
+"bootz ${zimage_loadaddr} - ${dtb_loadaddr}\0"
+
+
+#define MMC_BOOTCMD \
+"mmc_bootcmd="\
+"run mmc_get_dtblob;"\
+"run mmc_set_rootdev;"\
+"setenv setbootargs ${setbootargs} ${mmc_bootargs};"\
+"run setbootargs;"\
+"run mmc_start_knl\0"
+
 #define ARCH_ENV_SETTINGS \
 	BASE_INFO \
 	MTD_PAGE_SHIFT_BASE10 \
@@ -476,7 +523,12 @@
 	SD_DEVICE_NUMBER \
 	SD_UPDATE \
 	FIT_START_KNL \
-	FIT_BOOTCMD
+	FIT_BOOTCMD \
+	MMC_GET_DTBLOB \
+	MMC_SET_ROOTDEV \
+	MMC_BOOTARGS \
+	MMC_BOOTCMD \
+	MMC_START_KNL
 
 #define CONFIG_ZERO_BOOTDELAY_CHECK /* check keypress even if bootdelay==0 */
 #define CONFIG_BOOTDELAY	1
