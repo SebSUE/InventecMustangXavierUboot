@@ -24,6 +24,7 @@ extern uint32_t left_channel_samples[480];
 extern uint32_t stereo_interleaved_data[960];
 extern uint32_t right_channel_samples_0_1[480];
 extern uint32_t left_channel_samples_0_1[480];
+
 /*extern uint32_t left_data[1574888];*/
 /*extern uint32_t right_data[1574888];*/
 
@@ -327,20 +328,254 @@ int audio_i2s0_output_to_stereo_codec_test(void)
 	}
 	stereo_interleaved_r = (uint32_t *)0x68000000;
 
+
+
 	/*This test uses Stereo interleaved data to be played back from DDR*/
 	/*crmu_reset_related();*/
 	audio_sw_reset();
 	audio_io_mux_select();
 	asiu_audio_clock_gating_disable();
+
+	smbus_init(0);
+	smbus_slave_address = 0x18;
+// [ADK] added here ----------------------------------------------------------
+	/*Check for SMBUS Slave Presence*/
+	slave_present = smbus_slave_presence(smbus_slave_address);
+	if (slave_present == 0) {
+		post_log("TI Stereo Codec in daughter card recognized as a Slave\n");
+	} else {
+		post_log("TI Stereo Codec in daughter card not recognized as a Slave\n");
+		return -1;
+	}
+
+	/*start writing to the Stereo Codec registers - Page 0 chosen for the following register accesses*/
+	control_register = 0x00;
+	control_byte = 0x00 | (1 << 31);
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - Page Select REgister\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL\n");
+		return -1;
+	}
+
+	/* Reset */
+	control_register = 0x01;
+	control_byte = 0x80 | (1 << 31);
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - Page Select REgister\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL\n");
+		return -1;
+	}
+
+#if 0
+// Test GPIO1 as a GPIO output pin, OK 
+while(1) {
+	/* Register 98*/
+	control_register = 98;
+	control_byte = 0x90 | (1 << 31); /**/
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+//		post_log("SMBUS TRANSACTION SUCCESSFUL - GPIO1 Control Register\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL -GPIO1 Control  Register\n");
+		return -1;
+	}
+
+
+	control_register = 98;
+	control_byte = 0x91 | (1 << 31); /**/
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+//		post_log("SMBUS TRANSACTION SUCCESSFUL - GPIO1 Control Register\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL -GPIO1 Control  Register\n");
+		return -1;
+	}
+}
+#endif // 0
+	/* Register 98*/
+	control_register = 98;
+	control_byte = 0x28 | (1 << 31); /* GPIO1 - output clock mux with M=1, take clock from the CLKDIV ..*/
+//	control_byte = 0x20 | (1 << 31); /* GPIO1 - output clock mux with M=1, take clock from the PLL_OUT*/
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - GPIO1 Control Register\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL -GPIO1 Control  Register\n");
+		return -1;
+	}
+
+// Step 1 from Caleb ..
+
+	/* Register 102  CLKDIV from MCLK, PLL from GPIO2, N=2*/
+	control_register = 102;
+	control_byte = 0x52 | (1 << 31); /* 00010010b */
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - Clock Generation Control Register\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL -Clock Generation Control Register\n");
+		return -1;
+	}
+
+#if 0
+	/* Register 3: PLL disable (CODEC_CLKIN=CLKDIV_OUT), Q=2*/
+	control_register = 3;
+	control_byte = 0x10 | (1 << 31); /* 00010xxxb */
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - PLL Programming Control Register\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL -PLL Programming Control  Register\n");
+		return -1;
+	}
+
+#endif
+
+#if 0
+	/* Register 99*/
+	control_register = 99;
+	control_byte = 0x80 | (1 << 31); /**/
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - GPIO2 Control Register\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL -GPIO2 Control  Register\n");
+		return -1;
+	}
+
+#endif // 0
+
+// Step 2 from Caleb ..
+	smbus_slave_address = 0x19;
+	/*start writing to the Stereo Codec registers - Page 0 chosen for the following register accesses*/
+	control_register = 0x00;
+	control_byte = 0x00 | (1 << 31);
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - Page Select REgister\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL\n");
+		return -1;
+	}
+
+	/* Reset */
+	control_register = 0x01;
+	control_byte = 0x80 | (1 << 31);
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - Page Select REgister\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL\n");
+		return -1;
+	}
+	/* Register 102  CLKDIV from MCLK, PLL from MCLK */
+	control_register = 102;
+	control_byte = 0x02 | (1 << 31); /* 00000010b */
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL 0x19 - Clock Generation Control Register\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL -Clock Generation Control Register\n");
+		return -1;
+	}
+	
+	smbus_slave_address = 0x1a;
+	/*start writing to the Stereo Codec registers - Page 0 chosen for the following register accesses*/
+	control_register = 0x00;
+	control_byte = 0x00 | (1 << 31);
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - Page Select REgister\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL\n");
+		return -1;
+	}
+
+	/* Reset */
+	control_register = 0x01;
+	control_byte = 0x80 | (1 << 31);
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - Page Select REgister\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL\n");
+		return -1;
+	}
+	/* Register 102  CLKDIV from MCLK, PLL from MCLK */
+	control_register = 102;
+	control_byte = 0x02 | (1 << 31); /* 00000010b */
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL  0x1a - Clock Generation Control Register\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL -Clock Generation Control Register\n");
+		return -1;
+	}
+
+	smbus_slave_address = 0x1b;
+
+	/*start writing to the Stereo Codec registers - Page 0 chosen for the following register accesses*/
+	control_register = 0x00;
+	control_byte = 0x00 | (1 << 31);
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - Page Select REgister\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL\n");
+		return -1;
+	}
+	/* Reset */
+	control_register = 0x01;
+	control_byte = 0x80 | (1 << 31);
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - Page Select REgister\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL\n");
+		return -1;
+	}
+	/* Register 102  CLKDIV from MCLK, PLL from MCLK */
+	control_register = 102;
+	control_byte = 0x02 | (1 << 31); /* 00000010b */
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL  0x1b - Clock Generation Control Register\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL -Clock Generation Control Register\n");
+		return -1;
+	}
+
+// Step 3 from Caleb ..
+	smbus_slave_address = 0x18;
+	/* Register 98*/
+	control_register = 98;
+	control_byte = 0x20 | (1 << 31); /**/
+	smbus_status = smbus_wm8750_write(smbus_slave_address, control_register, control_byte);
+	if (smbus_status == 0) {
+		post_log("SMBUS TRANSACTION SUCCESSFUL - GPIO1 Control Register\n");
+	} else {
+		post_log("SMBUS TRANSACTION NOT SUCCESSFUL -GPIO1 Control  Register\n");
+		return -1;
+	}
+// -----------------------------------------------------------------
+
 	asiu_audio_pad_enable();
+
 	/*Configuring CRMU PLL CONTROL REGISTER*/
 	asiu_audio_gen_pll_pwr_on(1);
+
 	/*user macro set to 48kHz clock*/
 	asiu_audio_gen_pll_group_id_config(1, 0x00000046, 0x000C75FF, 0x000000D8, 4, 0, 8, 2, 0, 0);
 	post_log("Audio PLL configuration done\n");
 
-	smbus1_init(1);
-	smbus_slave_address = 0x18;
+// goto mclk_cfg;
+
+
+goto mclk_cfg;
 
 	/*Audio BF control source channel configuration*/
 	post_log("Source Channel 0 under configuration\n");
@@ -364,9 +599,12 @@ int audio_i2s0_output_to_stereo_codec_test(void)
 
 	/*I2S0 Stream output configuration*/
 	asiu_audio_i2s_stream_config_samp_count(0, 1, 0, 8, 0, 1, 0, 0, 0, 1);
-
+	
+mclk_cfg:
 	asiu_audio_mclk_cfg(1, 2, 1);
 	post_log("MCLK and PLLCLKSEL programming done\n");
+	
+return 0;
 
 	/*I2S0 Out Config*/
 	asiu_audio_i2s_out_tx_config(1, 1, 0, 0, 1, 0, 24, 0, 0, 0, 2, 0, 0, 1);
@@ -1031,19 +1269,21 @@ int audio_i2s1_output_to_stereo_codec_test(void)
 
 int audio_i2s_test(void)
 {
-	int i2s, status = 0;
+	int i2s =0, status = 0;
+
+/*
 	post_log("\n\nSelect I2S interface: 0 - I2S0; 1 - I2S1 2 - I2S2\n");
 	i2s = post_getUserInput("I2S i/f? (0/1/2) : ");
-
+*/
 	if (i2s == 0)
 		status = audio_i2s0_output_to_stereo_codec_test();
-
+#if 0
 	if (i2s == 1)
 		status = audio_i2s1_output_to_stereo_codec_test();
 
 	if (i2s == 2)
 		status = audio_i2s2_output_test_to_stereo_codec();
-
+#endif
 	return status;
 }
 

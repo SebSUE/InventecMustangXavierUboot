@@ -273,6 +273,8 @@ endif
 
 obj-$(CONFIG_CMD_BLOB) += cmd_blob.o
 
+obj-$(CONFIG_CMD_I2S) += cmd_i2s.o
+
 # We always have this since drivers/ddr/fs/interactive.c needs it
 obj-y += cli_simple.o
 

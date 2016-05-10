@@ -156,7 +156,11 @@ out:
 	return success;
 }
 
+#ifdef CONFIG_TARGET_BCMCYGNUS
+bool stop_watchdog(void)
+#else
 static bool stop_watchdog(void)
+#endif	
 {
 	bool success = false;
 

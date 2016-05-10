@@ -5,6 +5,7 @@
 #include <common.h>
 #include <asm/io.h>
 #include "iproc_gpio.h"
+#include "iproc_gpio_cfg.h"
 
 #if defined(CONFIG_CYGNUS)
 
@@ -278,7 +279,7 @@ static int iproc_gpiolib_output(iproc_gpio_chip *ourchip,
 static void iproc_gpiolib_set(iproc_gpio_chip *ourchip,
 				unsigned gpio, int value)
 {
-	unsigned long val;
+	unsigned int val;
 	unsigned int  nBitMask = 1 << gpio;
 
 	/*iproc_gpio_lock(ourchip, flags);*/
@@ -305,8 +306,8 @@ static void iproc_gpiolib_set(iproc_gpio_chip *ourchip,
 
 	_iproc_gpio_writel(ourchip, val, GP_DATA_OUT_BASE);
 
-	/*printf("addr:%x out:%x\n", ourchip->ioaddr+ GP_DATA_OUT_BASE, val);
-	iproc_gpio_unlock(ourchip, flags);*/
+	printf("%s: addr@%p out:%x\n", __func__, ourchip->ioaddr+ GP_DATA_OUT_BASE, val);
+/*	iproc_gpio_unlock(ourchip, flags);*/
 }
 
 /*get the gpio pin value*/
@@ -411,6 +412,19 @@ void disableAonGPIOInterrupt(int pin, IRQTYPE irqtype)
 		writew ((temp & ~IPROC_CCA_INT_F_GPIOINT), gpioDev.intr_ioaddr + CCA_INT_MASK_BASE);
 	}
 }
+
+//int iproc_aon_gpio_setInputdisable (iproc_gpio_chip *chip, unsigned int off, InputDisableCfg enableDisable);
+
+void disableAonGPIOInput(int pin) 
+{
+	iproc_aon_gpio_setInputdisable(&gpioDev, pin, INPUT_DISABLE);
+}
+
+void setAonGPIOPinStrength(int pin) 
+{
+	iproc_aon_gpio_setDriveStrength(&gpioDev, pin, d_16mA);
+}
+
 
 extern void iproc_aon_gpio_iomux(int op);
 void initAonGPIOState ( void )

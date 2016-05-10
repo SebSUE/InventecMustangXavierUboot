@@ -114,9 +114,15 @@ static int init_func_watchdog_init(void)
 	defined(CONFIG_SH))
 	hw_watchdog_init();
 # endif
+#ifdef CONFIG_TARGET_BCMCYGNUS
+	bool stop_watchdog(void);
+
+	stop_watchdog();
+	puts("       Watchdog disabled\n");
+#else	
 	puts("       Watchdog enabled\n");
 	WATCHDOG_RESET();
-
+#endif
 	return 0;
 }
 

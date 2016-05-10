@@ -703,6 +703,9 @@ int post_check_board_cfg_env(void)
 	char *var;
 
 	var = getenv(name);
+
+	var="BCM958305K";
+	
 	if (var == NULL) {
 		/* if no variable defined*/
 		puts("\n*********************************************************");

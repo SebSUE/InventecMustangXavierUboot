@@ -48,6 +48,8 @@
 #define PAXB_1_CLK_CONTROL 0x18013000
 #define PAXB_0_STRAP_STATUS__STRAP_IPROC_PCIE_USER_RC_MODE 0
 
+#define CRMU_PCIE_CFG	0x0301d0a0
+
 #define MDIO_TIMEOUT_USEC 100
 
 #define OPCODE_WRITE 1
@@ -382,11 +384,14 @@ int soc_pcie_check_link(int port)
 
     if (conf_trace) printf("\n pos is %d\n", pos);
 
+    pci_bus0_read_config_dword(pcie_port,devfn, pos + 0xc, &val);
+    if (conf_trace) printf("==>PCIE: LINKCAP reg %#x val %#x\n", pos+0xc, val );
+
+    pci_bus0_read_config_word(pcie_port,devfn, pos + 0x10, &tmp16);
+    if (conf_trace) printf("==>PCIE: LINKCNT reg %#x val %#x\n", pos+0x10, tmp16 );
+
     pci_bus0_read_config_word(pcie_port,devfn, pos + PCI_EXP_LNKSTA, &tmp16);
-
-    if (conf_trace) printf("==>PCIE: LINKSTA reg %#x val %#x\n",
-        pos+PCI_EXP_LNKSTA, tmp16 );
-
+    if (conf_trace) printf("==>PCIE: LINKSTA reg %#x val %#x\n", pos+PCI_EXP_LNKSTA, tmp16 );
 
 
     nlw = (tmp16 & PCI_EXP_LNKSTA_NLW) >> PCI_EXP_LNKSTA_NLW_SHIFT ;
@@ -468,8 +473,9 @@ phy_write(uint phyaddr, uint reg, uint16_t v)
 	}
 
 	/* set preamble and MDCDIV */
-	tmp = 	(1<<ChipcommonB_MII_Management_Control__PRE) |			/* PRE */
+	tmp = 	 (1<<ChipcommonB_MII_Management_Control__PRE) |			/* PRE */
 			0x1a;		/* MDCDIV */
+			/* MII_MDCDIV; */
 
         tmp &= ~(1 << ChipcommonB_MII_Management_Control__EXT);
 	
@@ -519,8 +525,9 @@ phy_read(uint phyaddr, uint reg)
 	}
 
 	/* set preamble and MDCDIV */
-	tmp = 	(1<<ChipcommonB_MII_Management_Control__PRE) |			/* PRE */
-			0x1a;													/* MDCDIV */
+	tmp =  (1<<ChipcommonB_MII_Management_Control__PRE) |			/* PRE */
+		    	0x1a;													/* MDCDIV */
+/*		MII_MDCDIV; */
 
 	tmp &= ~(1 << ChipcommonB_MII_Management_Control__EXT);
 	
@@ -623,6 +630,10 @@ static u16 mdio_read(unsigned int phy_addr, unsigned int reg_addr)
 {
         u32 val;
 
+#if 0
+	val= phy_read(phy_addr, reg_addr);
+#else
+
         if (mdio_wait_idle())
 		printf("%s() - Error\n", __func__);
 
@@ -638,13 +649,17 @@ static u16 mdio_read(unsigned int phy_addr, unsigned int reg_addr)
 
         val = readl(ChipcommonB_MII_Management_Control + MII_MGMT_CMD_DATA_OFFSET) &
                 MII_MGMT_CMD_DATA_MASK;
-
+#endif
         return (u16)val;
 }
 
 static void mdio_write(unsigned int phy_addr,
                 unsigned int reg_addr, u16 wr_data)
 {
+
+#if 0
+	phy_write(phy_addr, reg_addr, wr_data);
+#else
         u32 val;
 
         if (mdio_wait_idle())
@@ -660,6 +675,7 @@ static void mdio_write(unsigned int phy_addr,
 
         if (mdio_wait_idle())
 		printf("%s() - Error\n", __func__);
+#endif		
 }
 
 #define PCIE_PHY_BLK_ADDR_OFFSET 0x1F
@@ -698,15 +714,43 @@ static void iproc_pcie_mii_phy_init(u32 phy_addr)
         unsigned int reg_addr;
         u16 val;
 
-        mdio_init();
+//        mdio_init();
+	reg32_write(CRMU_PCIE_CFG, 0x00000202);
 
         reg_addr = PCIE_PHY_REG_ADDR;
         val = PCIE_PHY_DATA;
-        iproc_pcie_phy_reg_write(phy_addr, reg_addr, val);
+/*
+       iproc_pcie_phy_reg_write(phy_addr, reg_addr, val);
         val = iproc_pcie_phy_reg_read(phy_addr, reg_addr);
 	if (conf_trace)
         	printf("%s() phy: 0x%x reg: 0x%4x val: 0x%4x\n",
 			 __func__, phy_addr, reg_addr, val);
+*/
+reg_addr = 0x1010;
+val = 0x8000;
+       iproc_pcie_phy_reg_write(phy_addr, reg_addr, val);
+        val = iproc_pcie_phy_reg_read(phy_addr, reg_addr);
+	if (conf_trace)
+        	printf("%s() phy: 0x%x reg: 0x%4x val: 0x%4x\n",
+			 __func__, phy_addr, reg_addr, val);
+
+reg_addr = 0x101b;
+        val = iproc_pcie_phy_reg_read(phy_addr, reg_addr);
+	if (conf_trace)
+        	printf("%s() phy: 0x%x reg: 0x%4x val: 0x%4x\n",
+			 __func__, phy_addr, reg_addr, val);
+
+
+/* -------------------
+	reg_addr = 0x1310;
+	val = 0x000b;
+        	iproc_pcie_phy_reg_write(phy_addr, reg_addr, val);
+        	val = iproc_pcie_phy_reg_read(phy_addr, reg_addr);
+		if (conf_trace)
+        		printf("%s() phy: 0x%x reg: 0x%4x val: 0x%4x\n",
+			 __func__, phy_addr, reg_addr, val);
+----------------- */			 
+	
 }
 
 

@@ -2361,7 +2361,7 @@ int smbus_wm8750_write(uint32_t slave_addr, uint32_t control_byte1, uint32_t con
 		post_log("\n\rError occured ...!!!\n\r");
 		return -1;
 	} else {
-		post_log("SMBUS TRANSACTION PASSED FOR SLAVE ADDRESS : %08X WITH CONTROL BYTE 1 : %08X AND CONTROL BYTE 2 : %08X\n", slave_addr, control_byte1, control_byte2);
+//		post_log("SMBUS TRANSACTION PASSED FOR SLAVE ADDRESS : %08X WITH CONTROL BYTE 1 : %08X AND CONTROL BYTE 2 : %08X\n", slave_addr, control_byte1, control_byte2);
 		return 0;
 	}
 }
@@ -2393,3 +2393,60 @@ int smbus_write(uint32_t slave_addr, uint32_t control_byte1, uint32_t control_by
 		return 0;
 	}
 }
+
+void mustang_audio_sw_reset(void)
+{
+	cpu_wr_single(CRMU_CHIP_IO_PAD_CONTROL, 0, 4);
+	/*ASIU SW RESET*/
+	cpu_wr_single(ASIU_TOP_SW_RESET_CTRL, 0x00000000, 4);
+	cpu_wr_single(ASIU_TOP_SW_RESET_CTRL, 0x000003ff, 4);
+	udelay(1000);
+}
+
+void mustang_audio_io_mux_select(void)
+{
+	uint32_t data;
+	/*IOMUX PROGRAMMING FOR I2Sx*/
+//	cpu_wr_single(CRMU_IOMUX_CTRL0, 0x22222, 4);
+
+	/*IOMUX PROGRAMMING FOR I2S1 and I2S2 AND SPDIF*/
+	data = cpu_rd_single(CRMU_IOMUX_CTRL3, 4);
+	data &=~(0x00700000);
+	data |= 0x00100000;
+	cpu_wr_single(CRMU_IOMUX_CTRL3, data, 4);
+	cpu_wr_single(SMART_CARD_FCB_SEL, 0x00000001, 4);
+
+}
+void mustang_audio_clock_gating_disable(void)
+{
+	cpu_wr_single(ASIU_TOP_CLK_GATING_CTRL, 0x00000002, 4);
+
+	/*default Group ID configurations also*/
+	cpu_wr_single(AUD_FMM_BF_CTRL_SOURCECH_GRP0_REG, 0x0, 4);
+	cpu_wr_single(AUD_FMM_BF_CTRL_SOURCECH_GRP1_REG, 0x1, 4);
+	cpu_wr_single(AUD_FMM_BF_CTRL_SOURCECH_GRP2_REG, 0x2, 4);
+	cpu_wr_single(AUD_FMM_BF_CTRL_SOURCECH_GRP3_REG, 0x3, 4);
+}
+
+void mustang_audio_pad_enable(void)
+{
+	uint32_t data;
+//	cpu_wr_single(CRMU_CHIP_IO_PAD_CONTROL, 0, 4);
+	data = cpu_rd_single(ASIU_TOP_PAD_CTRL_0, 4);
+	data |= 0x1;
+	cpu_wr_single(ASIU_TOP_PAD_CTRL_0, data, 4);
+}
+
+void mustang_audio_gen_pll_pwr_on(uint32_t crmu_pll_pwr_on)
+{
+	if (crmu_pll_pwr_on == 1) {
+		cpu_wr_single(CRMU_PLL_AON_CTRL, ((cpu_rd_single(CRMU_PLL_AON_CTRL, 4) & 0xfffffbff) | 0x00000400) , 4);
+		udelay(10000);
+		cpu_wr_single(CRMU_PLL_AON_CTRL, ((cpu_rd_single(CRMU_PLL_AON_CTRL, 4) & 0xfffff5ff) | 0x00000a00) , 4);
+		udelay(10000);
+		cpu_wr_single(CRMU_PLL_AON_CTRL, ((cpu_rd_single(CRMU_PLL_AON_CTRL, 4) & 0xfffffeff)) , 4);
+		post_log("CRMU_PLL_AON_CTRL= %0x\n", cpu_rd_single(CRMU_PLL_AON_CTRL, 4));
+		udelay(2000);
+	}
+}
+

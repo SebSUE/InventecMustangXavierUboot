@@ -738,12 +738,72 @@ int pci_hose_scan(struct pci_controller *hose)
 	return pci_hose_scan_bus(hose, hose->current_busno);
 }
 
+void setAonGPIOasOutput(int pin, int value);
+void iprocAonGPIOInit(void);
+int getAonGPIOpinValue(int pin);
+void disableAonGPIOInput(int pin);
+void setAonGPIOPinStrength(int pin);
+void iproc_lcd_iomux(int op);
+void iprocGPIOInit(void);
+void setGPIOasOutput(int pin, int value);
+void iproc_uart_iomux(int op);
+
+void mustang_audio_sw_reset(void);
+void mustang_audio_io_mux_select(void);
+void mustang_audio_clock_gating_disable(void);
+void mustang_audio_pad_enable(void);
+void mustang_audio_gen_pll_pwr_on(uint32_t crmu_pll_pwr_on);
+
+
 void pci_init(void)
 {
+
+
+#if defined(CONFIG_CYGNUS)
+	int val;
+	/*Perform hardware init*/
+	iprocAonGPIOInit();
+
+	iproc_lcd_iomux(3); // Switch LCD pins to the GPIO mode 	
+	iprocGPIOInit();
+/*
+	setGPIOasOutput(58, 1); // Set GPIO1 on BCM4356 to high for select the UART interface ;
+*/	
+	setGPIOasOutput(48, 1); // Set BT_DEV_WAKE on BCM4356 to high for start the UART interface ;
+
+	disableAonGPIOInput(2);	
+	disableAonGPIOInput(3);	
+	setAonGPIOasOutput(2, 0);
+	setAonGPIOasOutput(3, 0);
+	setAonGPIOPinStrength(2);
+	setAonGPIOPinStrength(3);
+	iproc_uart_iomux(0);
+
+	setAonGPIOasOutput(2, 1);
+	val = getAonGPIOpinValue(2);
+	printf("%s: AON_GPIO2=%d\n", __func__, val);
+	setAonGPIOasOutput(3, 1);
+	val = getAonGPIOpinValue(3);
+	printf("%s: AON_GPIO3=%d\n", __func__, val);
+
+/*
+	mustang_audio_sw_reset();
+
+	mustang_audio_io_mux_select();	
+	mustang_audio_clock_gating_disable();	
+	mustang_audio_pad_enable();
+	mustang_audio_gen_pll_pwr_on(1);
+*/	
+	
+	
+#endif
+
 	hose_head = NULL;
 
 	/* now call board specific pci_init()... */
 	pci_init_board();
+
+
 }
 
 /* Returns the address of the requested capability structure within the
