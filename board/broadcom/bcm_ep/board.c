@@ -1,6 +1,6 @@
 /*
  * Copyright 2014 Broadcom Corporation.
- *
+ * Copyright (C) 2016 StreamUnlimited
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
@@ -15,12 +15,25 @@
 #endif
 #include <broadcom/reset_reason_api.h>
 #include <asm/persistent_info.h>
+#include <bcmiproc_bbl.h>
 
 #ifdef CONFIG_RAW_BMP_LOGO
 #include <bmp_raw.h>
 #endif
 
+#include <fwupdate_flags.h>
+#include "board.h"
+
+
 DECLARE_GLOBAL_DATA_PTR;
+
+static struct BoardInfo __attribute__((section (".data"))) board = {
+	.moduleVersion = MV_unknown,
+	.carrierBoardType = CBT_unknown,
+};
+
+static BoardState boardState = BS_Off;
+struct StreamBoardInterface *board_interface = NULL;
 
 __weak unsigned long get_ramdump_reason(void)
 {
@@ -48,10 +61,30 @@ int board_init(void)
 	 */
 	gd->bd->bi_boot_params = CONFIG_SYS_SDRAM_BASE + 0x100;
 
+	bbl_init();
+
+	if (RESET_REASON_POWER_ON == get_reset_reason()) {
+		printf("Power ON detected, set BootCounter to 0\n");
+		fwupdate_setBootCount(0);
+	}
+
 	run_command("ramdump", 0);
+
+
 
 	return 0;
 }
+
+#ifdef CONFIG_BOARD_LATE_INIT
+int board_late_init(void)
+{
+#ifdef CONFIG_CMD_SFU_PARSER
+	if (0 > fwupdate_init()) {
+		printf("ERROR: fwupdate_init() call failed!\n");
+	}
+#endif /* CONFIG_CMD_SFU_PARSER */
+}
+#endif /* CONFIG_BOARD_LATE_INIT */
 
 /*
  * dram_init - sets u-boot's idea of sdram size
@@ -150,3 +183,93 @@ int misc_init_r(void)
 	return 0;
 }
 #endif
+
+/* Handling board state change.
+ * Should be handled individually for each board (LED indication, ...)
+ */
+void on_board_state_changed(BoardState state)
+{
+	if ((board_interface != NULL) && (board_interface->on_board_state_changed != NULL))
+		board_interface->on_board_state_changed(&board, state);
+}
+
+void set_board_state(BoardState state)
+{
+	if (state == get_board_state() && state != 111)
+		return;
+
+	boardState = state;
+	on_board_state_changed(state);
+}
+
+BoardState get_board_state(void)
+{
+	return boardState;
+}
+
+/* change/get board status */
+static int do_bstate(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
+{
+	if (argc < 1 || argc > 2) {
+		printf ("Wrong arguments.\nUsage: %s\n", cmdtp->help);
+		return 1;
+	}
+
+	if (argc == 1) {
+		printf("Current board state: '%s'\n", boardStateStrings[get_board_state()]);
+
+
+		return 0;
+	}
+
+	if (strncmp(argv[1], "normal", 5) == 0) {
+		set_board_state(BS_Normal);
+	} else if (strncmp(argv[1], "dontunplug", 10) == 0) {
+		set_board_state(BS_DontUnplug);
+	} else if (strncmp(argv[1], "hardfailure", 11) == 0) {
+		set_board_state(BS_HardFailure);
+	} else if (strncmp(argv[1], "booting", 7) == 0) {
+		set_board_state(BS_BootingKernel);
+	} else {
+		printf ("Invalid parameter: '%s'\n", argv[1]);
+		printf ("Usage: %s\n", cmdtp->help);
+		return 1;
+	}
+
+	return 0;
+}
+
+U_BOOT_CMD(
+	bstate, 2, 1,  do_bstate,
+	"set/get board state",
+	"[state]\n" \
+	"    state: board state to set\n"\
+	"            normal - initial state, running\n"\
+	"        dontunplug - do not power off or unplug device (FW update, ...)\n"\
+	"       hardfailure - non recoverable error state\n"\
+	"           booting - booting kernel\n"
+);
+
+
+#ifdef CONFIG_BOOTCOUNT_LIMIT
+void bootcount_store(ulong a)
+{
+	int status = fwupdate_setBootCount((uint32_t)a);
+	
+	if (0 != status)
+		printf("ERROR: fwupdate_setBootCount() failed!\n");
+	else
+		printf("BOOTCOUNT is %ld\n", a);
+}
+
+ulong bootcount_load(void)
+{
+	uint8_t bootcount = 0xFF;
+
+	int status = fwupdate_getBootCount(&bootcount);
+
+	if (0 != status)
+		printf("ERROR: getBootCount() failed!\n");
+	return bootcount;
+}
+#endif /* CONFIG_BOOTCOUNT_LIMIT */

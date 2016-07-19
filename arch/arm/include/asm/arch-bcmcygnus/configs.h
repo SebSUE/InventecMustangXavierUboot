@@ -202,7 +202,7 @@
  * WARNING: When changing the partitions order make sure you update
  *          CONFIG_ENV_OFFSET accordingly.
  */
-#define CONFIG_ENV_SIZE		0x2000
+#define CONFIG_ENV_SIZE		(128 * 1024)
 #ifdef CONFIG_ENV_IS_IN_MMC
 #define UBOOT_ENV_PART_SIZE	0x200000
 #define CONFIG_ENV_OFFSET	0x00700000 /* Must match mmc gpt table layout */
@@ -480,7 +480,7 @@
 
 #define CONFIG_ZERO_BOOTDELAY_CHECK /* check keypress even if bootdelay==0 */
 #define CONFIG_BOOTDELAY	1
-#define CONFIG_BOOTCOMMAND "run initrd_bootcmd"
+/*#define CONFIG_BOOTCOMMAND "run initrd_bootcmd"*/
 
 /* Diagnostics */
 #include <asm/arch/configs-diags.h>

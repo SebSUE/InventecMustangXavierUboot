@@ -8,6 +8,7 @@
 #define __BCM_EP_BOARD_H
 
 #include <asm/arch/configs.h>
+#include <configs/sue_fwupdate_bcm.h>
 
 /* Architecture, CPU, chip, etc */
 #define CONFIG_ARMV7
@@ -33,7 +34,7 @@
 #define CONFIG_NR_DRAM_BANKS		1
 
 #define CONFIG_SYS_MALLOC_LEN		(4 * 1024 * 1024)
-#define CONFIG_STACKSIZE		(256 * 1024)
+#define CONFIG_STACKSIZE		(512 * 1024)
 
 /* Some commands use this as the default load address */
 #define CONFIG_SYS_LOAD_ADDR		CONFIG_SYS_SDRAM_BASE
@@ -59,12 +60,10 @@
 
 #define CONFIG_BAUDRATE			115200
 
-#define CONFIG_ENV_SIZE			0x2000
-
 #define CONFIG_SYS_NO_FLASH	/* Not using NAND/NOR unmanaged flash */
 
 /* console configuration */
-#define CONFIG_SYS_CBSIZE		1024	/* Console buffer size */
+#define CONFIG_SYS_CBSIZE		(10 * 1024)	/* Console buffer size */
 #define CONFIG_SYS_PBSIZE		(CONFIG_SYS_CBSIZE + \
 			sizeof(CONFIG_SYS_PROMPT) + 16)	/* Printbuffer size */
 #define CONFIG_SYS_MAXARGS		64
@@ -104,6 +103,7 @@
 #define CONFIG_CMDLINE_EDITING
 #define CONFIG_COMMAND_HISTORY
 #define CONFIG_SYS_LONGHELP
+#define CONFIG_BOARD_LATE_INIT
 
 #define CONFIG_CRC32_VERIFY
 #define CONFIG_MX_CYCLIC
@@ -151,9 +151,43 @@
 #define ARCH_ENV_SETTINGS
 #endif
 
+/*#define MTDIDS_DEFAULT		"nand0=brcmnand.0"*/
+#define MTDPARTS_DEFAULT	"mtdparts=brcmnand.0:1m(boot1),1m(m0patch),1m(gpt),2m(ssb),2m(u-boot),2m(u-boot-env),1m(constants),128m(settings),16m(kernel),2m(dts),434m(rootfs),434m(download)"
+#define CONFIG_BOOTCOMMAND	SUE_FWUPDATE_BCM_BOOTCOMMAND
+#define CONFIG_ALTBOOTCOMMAND	SUE_FWUPDATE_BCM_ALTBOOTCOMMAND
+
+#define CONFIG_BOOTCOUNT_LIMIT	6
+
 #define CONFIG_EXTRA_ENV_SETTINGS \
-	ARCH_ENV_SETTINGS \
+/*	ARCH_ENV_SETTINGS*/ \
+	SUE_FWUPDATE_EXTRA_ENV_SETTINGS \
 	DEFAULT_ENV_SETTINGS
+
+#define CONFIG_MTD_PARTITIONS
+#define CONFIG_CMD_UBI
+#define CONFIG_CMD_UBIFS
+#define CONFIG_RBTREE
+#define CONFIG_LZO
+#define CONFIG_CMD_NAND_TRIMFFS
+#define CONFIG_CMD_MKFS_UBIFS
+
+#if (defined CONFIG_MTD_UBI_BEB_RESERVE)
+#undef CONFIG_MTD_UBI_BEB_RESERVE
+#define CONFIG_MTD_UBI_BEB_RESERVE  (2)
+#endif
+
+#define CONFIG_CMD_CRAMFS
+#define CONFIG_CRAMFS_CMDLINE
+
+/* update  support */
+#define CONFIG_CMD_SFU_PARSER
+#define CONFIG_SFU_RAM
+#undef SFU_DEBUG
+#undef CRC32_DEBUG
+#undef MD5_DEBUG
+#undef SHA256_DEBUG
+
+#define CONFIG_CMD_SETEXPR
 
 
 #endif /* __BCM_EP_BOARD_H */
