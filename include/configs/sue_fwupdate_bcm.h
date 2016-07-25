@@ -116,7 +116,7 @@
     "board_name=mustang\0" \
     "fdtfile=\0" \
     "console=ttyS0,115200n8\0" \
-    "optargs=\0" \
+    "optargs=''\0" \
     "sfu_load_addr=0x63000000\0" \
     "cramfsaddr=0x63000000\0" \
     "dtb_load_addr=0x64000000\0" \
@@ -178,7 +178,7 @@
  "nandroot=ubi0:bcm958305k-rootfs ubi.mtd=10,2048 rw\0" \
     "nandrootfstype=ubifs rootwait=1\0" \
     "nandargs=setenv bootargs console=${console} " \
-        "root=${nandroot} noinitrd ${wdtargs} " \
+        "root=${nandroot} noinitrd ${wdtargs} ${optargs} " \
         "rootfstype=${nandrootfstype} ${mtdparts}\0" \
     "nand_boot=echo \"Booting from nand ...\"; " \
         "run nandargs; " \
