@@ -214,7 +214,7 @@
 #define CONFIG_ENV_RANGE	(2 * CONFIG_NAND_BLOCKSIZE)
 #define UBOOT_ENV_PART_SIZE	MTD_PART_UBOOT_ENV_SIZE
 #endif /* CONFIG_ENV_IS_IN_MMC */
-#define CONFIG_ENV_OFFSET_REDUND (CONFIG_ENV_OFFSET + CONFIG_ENV_RANGE)
+/*#define CONFIG_ENV_OFFSET_REDUND (CONFIG_ENV_OFFSET + CONFIG_ENV_RANGE)*/
 
 /*
  * Check that the u-boot-env partition is big enough to accomodate the
