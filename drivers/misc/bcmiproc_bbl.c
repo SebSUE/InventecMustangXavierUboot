@@ -233,7 +233,7 @@ int bbl_reg_write(u32 reg_addr, u32 value)
 	return ret;
 }
 
-u32 bbl_reg_read(u32 reg_addr, u32 *data)
+int bbl_reg_read(u32 reg_addr, u32 *data)
 {
 	int ret;
 	u32 cmd;

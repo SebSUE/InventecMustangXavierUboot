@@ -61,7 +61,7 @@
 #define BBL_SEC39_MEM			0x29C
 
 int bbl_reg_write(u32 reg_addr, u32 value);
-u32 bbl_reg_read(u32 reg_addr, u32 *data);
+int bbl_reg_read(u32 reg_addr, u32 *data);
 int bbl_init(void);
 
 #endif /* __BCMIPROC_BBL_H_ */
