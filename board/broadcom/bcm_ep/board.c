@@ -63,10 +63,6 @@ int board_init(void)
 
 	bbl_init();
 
-	if (RESET_REASON_POWER_ON == get_reset_reason()) {
-		printf("Power ON detected, set BootCounter to 0\n");
-		fwupdate_setBootCount(0);
-	}
 
 	run_command("ramdump", 0);
 
@@ -79,6 +75,14 @@ int board_init(void)
 int board_late_init(void)
 {
 #ifdef CONFIG_CMD_SFU_PARSER
+	if (RESET_REASON_POWER_ON == get_reset_reason()) {
+		printf("Power ON detected, set BootCounter to 0\n");
+		fwupdate_setBootCount(0);
+		fwupdate_setUpdateFlag(0);
+		fwupdate_setFailFlag(0);
+		saveenv();
+	}
+
 	if (0 > fwupdate_init()) {
 		printf("ERROR: fwupdate_init() call failed!\n");
 	}

@@ -230,6 +230,7 @@
            "fi; " \
            "echo \"INFO: setting fail flag...\"; " \
            "fwup set fail; " \
+           "saveenv; " \
            "SFU_IMAGE_LOAD_VALID=yes;" \
            "echo \"INFO: SFU image load and valid\"; " \
         "else echo \"INFO: SFU image invalid\"; " \
@@ -780,6 +781,7 @@
         "fwup clear update; " \
         "echo \"INFO: setting fail flag...\"; " \
         "fwup set fail; " \
+        "saveenv; " \
         "bstate normal; " \
         "run nand_boot;\0" \
 

@@ -23,6 +23,7 @@
 
 #define REG_SFUPDATE			BBL_SEC0_MEM
 
+
 /*
  * Modify selected flag by its index.
  */
@@ -31,23 +32,27 @@ static int flag_write( uint8_t index, uint8_t data)
 	uint32_t val = 0;
 	assert(index <= 3);
 
-	if (!bbl_reg_read(REG_SFUPDATE, &val)) {
-		switch (index) {
-		case UPDATE_FLAG_INDEX:
-			val = (val & ~SFUPDATE_UPDATE_MASK) | ((data << SFUPDATE_UPDATE_SHIFT) & SFUPDATE_UPDATE_MASK);
-			break;
-		case FAIL_FLAG_INDEX:
-			val = (val & ~SFUPDATE_FAIL_MASK) | ((data << SFUPDATE_FAIL_SHIFT) & SFUPDATE_FAIL_MASK);
-			break;
-		case BOOT_COUNT_FLAG_INDEX:
-			val = (val & ~SFUPDATE_CNT_MASK) | ((data << SFUPDATE_CNT_SHIFT) & SFUPDATE_CNT_MASK);
-			break;
-		default:
-			return 1;
-		}
+	if (0 > bbl_reg_read(REG_SFUPDATE, &val)) {
+		val = getenv_ulong("sfuflags", 10, 0);
 	}
 
-	bbl_reg_write(REG_SFUPDATE, val);
+	switch (index) {
+	case UPDATE_FLAG_INDEX:
+		val = (val & ~SFUPDATE_UPDATE_MASK) | ((data << SFUPDATE_UPDATE_SHIFT) & SFUPDATE_UPDATE_MASK);
+		break;
+	case FAIL_FLAG_INDEX:
+		val = (val & ~SFUPDATE_FAIL_MASK) | ((data << SFUPDATE_FAIL_SHIFT) & SFUPDATE_FAIL_MASK);
+		break;
+	case BOOT_COUNT_FLAG_INDEX:
+		val = (val & ~SFUPDATE_CNT_MASK) | ((data << SFUPDATE_CNT_SHIFT) & SFUPDATE_CNT_MASK);
+		break;
+	default:
+		return 1;
+	}
+
+	if (0 > bbl_reg_write(REG_SFUPDATE, val)) {
+		setenv_ulong("sfuflags", val);
+	}
 
 	return 0;
 }
@@ -60,21 +65,24 @@ static int flag_read(uint8_t index, uint8_t *data)
 	uint32_t valb = 0;
 	assert(index <= 3);
 
-	if (!bbl_reg_read(REG_SFUPDATE, &valb)) {
-		switch (index) {
-		case UPDATE_FLAG_INDEX:
-			*data = (valb & SFUPDATE_UPDATE_MASK) ? 1 : 0;
-			break;
-		case FAIL_FLAG_INDEX:
-			*data = (valb & SFUPDATE_FAIL_MASK) ? 1 : 0;
-			break;
-		case BOOT_COUNT_FLAG_INDEX:
-			*data = valb & SFUPDATE_CNT_MASK;
-			break;
-		default:
-			return 1;
-		}
+	if (0 > bbl_reg_read(REG_SFUPDATE, &valb)) {
+		valb = getenv_ulong("sfuflags", 10, 0);
 	}
+
+	switch (index) {
+	case UPDATE_FLAG_INDEX:
+		*data = (valb & SFUPDATE_UPDATE_MASK) ? 1 : 0;
+		break;
+	case FAIL_FLAG_INDEX:
+		*data = (valb & SFUPDATE_FAIL_MASK) ? 1 : 0;
+		break;
+	case BOOT_COUNT_FLAG_INDEX:
+		*data = valb & SFUPDATE_CNT_MASK;
+		break;
+	default:
+		return 1;
+	}
+
 	return 0;
 }
 
