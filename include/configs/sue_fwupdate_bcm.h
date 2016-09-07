@@ -113,7 +113,7 @@
     "rdaddr=0x81000000\0" \
     "bootfile=zImage\0" \
     "cramfsdir=bcm958305k\0" \
-    "board_name=mustang\0" \
+    "board_name=bcm958305k\0" \
     "fdtfile=\0" \
     "console=ttyS0,115200n8\0" \
     "optargs=''\0" \
