@@ -152,7 +152,7 @@
 #endif
 
 /*#define MTDIDS_DEFAULT		"nand0=brcmnand.0"*/
-#define MTDPARTS_DEFAULT	"mtdparts=brcmnand.0:1m(boot1),1m(m0patch),1m(gpt),2m(ssb),2m(u-boot),2m(u-boot-env),1m(constants),128m(settings),16m(kernel),2m(dts),434m(rootfs),434m(download)"
+#define MTDPARTS_DEFAULT	"mtdparts=brcmnand.0:1m(boot1),1m(m0patch),1m(gpt),2m(ssb),2m(u-boot),2m(u-boot-env),16m(kernel-a),2m(dt-blob-a),256m(rootfs-a),16m(kernel-b),2m(dt-blob-b),256m(rootfs-b),128m(settings),339m(scratch)"
 #define CONFIG_BOOTCOMMAND	SUE_FWUPDATE_BCM_BOOTCOMMAND
 #define CONFIG_ALTBOOTCOMMAND	SUE_FWUPDATE_BCM_ALTBOOTCOMMAND
 
