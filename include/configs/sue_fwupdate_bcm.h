@@ -26,10 +26,10 @@
  * 			U-boot set FAIL flag and reset the board
  * 			Restarted U-boot loads sfupdate from download partition into RAM
  * 			U-boot verifies checksums and versions of all parts of sfupdate inside RAM
- * 			U-boot flashes boot1, u-boot and u-boot-env if version changed  In this case it also reset the board
+ * 			U-boot flashes boot1, m0patch, u-boot and u-boot-env if version changed  In this case it also reset the board
  * 				If reset was performed than, u-boot recognize that FAIL flag is set and continues usb recovery
  * 				loads sfupdate from download partition into RAM again
- * 				verifies the checksums and versions and it will find out that boot1, u-boot and u-boot-env are up to date
+ * 				verifies the checksums and versions and it will find out that boot1, m0patch, u-boot and u-boot-env are up to date
  * 			FAIL flag is still set so u-boot erase the kernel
  * 			U-boot automatically flashes dts without version check.
  * 			U-boot automatically flashes rootfs without version check.
@@ -49,10 +49,10 @@
  * 		Following steps will be performed if conditions are fulfilled:
  * 			Restarted U-boot loads sfupdate from download partition into RAM
  * 			U-boot verifies checksums and versions of all parts of sfupdate inside RAM
- * 			U-boot flashes boot1, u-boot and u-boot-env if version changed. In this case it also reset the board
+ * 			U-boot flashes boot1, m0patch, u-boot and u-boot-env if version changed. In this case it also reset the board
  * 				If reset was performed than, u-boot recognize that UPDATE flag is set and continues with network update
  * 				loads sfupdate from download partition into RAM again
- * 				verifies the checksums and versions and it will find out that boot1, u-boot and u-boot-env are up to date
+ * 				verifies the checksums and versions and it will find out that boot1, m0patch, u-boot and u-boot-env are up to date
  * 			If rootfs or kernel version changed, kernel is erased
  * 			If dts version changed, dts is erased and flashed
  * 			If rootfs version changed, rootfs is erased and flashed
@@ -67,8 +67,8 @@
  *		readUimage                      - loads uImage to RAM
  *		handle_encm                     - decrypts chunk configured by last "sfu chnkhdr", if it was encrypted
  *		update_download_from_usb        - loads sfupdate file from usb and saves it into download partition
- * 		check_bootloaders_need_flashing - check boot1, u-boot, u-boot-env partition in image, set enviroments to signalize that flashing them is needed
- * 		flash_bootloaders_as_needed     - flash boot1, u-boot, u-boot-env partition as needed, decision is based on enviroment set by check_bootloaders_need_flashing
+ * 		check_bootloaders_need_flashing - check boot1, m0patch, u-boot, u-boot-env partition in image, set enviroments to signalize that flashing them is needed
+ * 		flash_bootloaders_as_needed     - flash boot1, m0patch, u-boot, u-boot-env partition as needed, decision is based on enviroment set by check_bootloaders_need_flashing
  * 		check_system_need_flashing      - check DTS, rootfs, kernel partition in image, set enviroments to signalize that flashing them is needed
  * 		flash_system_as_needed          - flash DTS, rootfs, kernel partition in image as needed, decision is based on enviroment set by check_system_need_flashing
  *		sfu_boot                        - main method
@@ -78,6 +78,7 @@
  * 		bootlimit                       - limit of uncorrcet reboots, if reached, board does not boot anymore
  * 		sfu_load_addr                   - base RAM address for u-boot operations
  * 		boot1_vers						- version of boot1 stored in NAND
+ * 		m0patch_vers                    - version of m0patch stored in NAND
  * 		uboot_vers                      - version of u-boot stored in NAND
  * 		ubootenv_vers                   - version of u-bootenv stored in NAND
  * 		dts_vers                        - version of DTS partition stored in NAND
@@ -91,13 +92,15 @@
  * 		SFU_CHNK_DATA                   - actual chunk data start address, set by call sfu chnkdr command
  * 		SFU_CHNK_SIZE                   - actual chunk data size, set by call sfu chnkdr command
  * 		SFU_CHNK_VERS                   - actual chunk version in sfupdate file, set by call sfu chnkdr command
- * 		SFU_DECRYPT_BOOT1_CHNK_SIZE       - size of boot1 chunk after decryption, set by call sfu decrypt command
+ * 		SFU_DECRYPT_BOOT1_CHNK_SIZE     - size of boot1 chunk after decryption, set by call sfu decrypt command
+ * 		SFU_DECRYPT_M0PATCH_CHNK_SIZE   - size of m0patch chunk after decryption, set by call sfu decrypt command
  * 		SFU_DECRYPT_UBOOT_CHNK_SIZE     - size of u-boot chunk after decryption, set by call sfu decrypt command
  * 		SFU_DECRYPT_UBOOTENV_CHNK_SIZE  - size of u-boot chunk after decryption, set by call sfu decrypt command
  * 		SFU_DECRYPT_DTS_CHNK_SIZE       - size dts chunk after decryption, set by call sfu decrypt command
  * 		SFU_DECRYPT_ROOTFS_CHNK_SIZE    - size rootfs chunk after decryption, set by call sfu decrypt command
  * 		SFU_DECRYPT_KERNEL_CHNK_SIZE    - size of kernel chunk after decryption, set by call sfu decrypt command
- * 		BOOT1_NEEDS_FLASHING              - flag for later boot1 flashing
+ * 		BOOT1_NEEDS_FLASHING            - flag for later boot1 flashing
+ * 		M0PATCH_NEEDS_FLASHING          - flag for later m0patch flashing
  * 		UBOOT_NEEDS_FLASHING            - flag for later u-boot flashing
  * 		UBOOTENV_NEEDS_FLASHING         - flag for later u-boot-env flashing
  * 		DTS_NEEDS_FLASHING              - flag for later dts flashing
@@ -293,6 +296,24 @@
         "else " \
             "echo \"INFO: boot1 not in download partition SFU update image\"; " \
         "fi; " \
+        "if sfu chnkhdr ${sfu_load_addr} m0patch; " \
+            "then " \
+            "echo \"INFO: m0patch in download partition SFU update image\"; " \
+            "if test -z \\\\'${m0patch_vers}\\\\' || test ${m0patch_vers} != ${SFU_CHNK_VERS}; " \
+                "then " \
+                "if test -z \\\\'${m0patch_vers}\\\\'; then echo \"INFO: m0patch_vers is missing\"; fi; " \
+                "if test ${m0patch_vers} != ${SFU_CHNK_VERS}; then echo \"INFO: m0patch_vers(${m0patch_vers}) not equal SFU_CHNK_VERS(${SFU_CHNK_VERS})\"; fi; " \
+                "echo \"INFO: m0patch needs flashing...\"; " \
+                "run handle_encm; " \
+                "if test ${SFU_CHNK_ENCM} = 00000001; " \
+                    "then " \
+                    "SFU_DECRYPT_M0PATCH_CHNK_SIZE=${SFU_CHNK_SIZE}; " \
+                "fi; " \
+                "M0PATCH_NEEDS_FLASHING=yes; " \
+            "fi; " \
+        "else " \
+            "echo \"INFO: m0patch not in download partition SFU update image\"; " \
+        "fi; " \
         "if sfu chnkhdr ${sfu_load_addr} u-boot; " \
             "then " \
             "echo \"INFO: uboot in download partition SFU update image\"; " \
@@ -335,6 +356,7 @@
     "flash_bootloaders_as_needed=" \
         "echo \"INFO: Starting flash_bootloaders_as_needed..\"; " \
         "TMP_BOOT1_VERS=${boot1_vers}; " \
+        "TMP_M0PATCH_VERS=${m0patch_vers}; " \
         "TMP_UBOOT_VERS=${uboot_vers}; " \
         "TMP_UBOOTENV_VERS=${ubootenv_vers}; " \
         "TMP_DTS_VERS=${dts_vers}; " \
@@ -364,6 +386,33 @@
                 "UBOOT_RESET=yes; " \
             "else " \
                 "echo \"ERROR: boot1 not in download partition SFU update image\"; " \
+                "sfu errstate; " \
+            "fi; " \
+        "fi; " \
+        "if test ${M0PATCH_NEEDS_FLASHING} = yes; " \
+            "then " \
+            "if sfu chnkhdr ${sfu_load_addr} m0patch; " \
+                "then " \
+                "echo \"INFO: m0patch in download partition SFU update image\"; " \
+                "bstate dontunplug; " \
+                "echo \"INFO: m0patch partition being erased\"; " \
+                "nand erase.part ${SFU_CHNK_DEST}; " \
+                "if test ${SFU_CHNK_ENCM} = 00000001; " \
+                    "then " \
+                    "SFU_CHNK_SIZE=${SFU_DECRYPT_m0patch_CHNK_SIZE}; " \
+                "fi; " \
+                "echo \"INFO: writing m0patch to flash...\"; " \
+                "if nand write ${SFU_CHNK_DATA} ${SFU_CHNK_DEST} ${SFU_CHNK_SIZE}; " \
+                    "then " \
+                    "echo \"INFO: nand write successful\"; " \
+                "else " \
+                    "echo \"ERROR: nand write failed\"; " \
+                    "sfu errstate; " \
+                "fi; " \
+                "TMP_M0PATCH_VERS=${SFU_CHNK_VERS}; " \
+                "UBOOT_RESET=yes; " \
+            "else " \
+                "echo \"ERROR: m0patch not in download partition SFU update image\"; " \
                 "sfu errstate; " \
             "fi; " \
         "fi; " \
@@ -428,6 +477,11 @@
             "echo \"INFO: setting boot1_vers in environment...\"; " \
             "setenv boot1_vers ${TMP_BOOT1_VERS};" \
         "fi; " \
+        "if test ${M0PATCH_NEEDS_FLASHING} = yes; " \
+            "then " \
+            "echo \"INFO: setting m0patch_vers in environment...\"; " \
+            "setenv m0patch_vers ${TMP_M0PATCH_VERS};" \
+        "fi; " \
         "if test ${UBOOT_NEEDS_FLASHING} = yes; " \
             "then " \
             "echo \"INFO: setting uboot_vers in environment...\"; " \
@@ -437,6 +491,8 @@
             "then " \
             "echo \"INFO: setting boot1 in environment...\"; " \
             "setenv boot1_vers ${TMP_BOOT1_VERS};" \
+            "echo \"INFO: setting m0patch in environment...\"; " \
+            "setenv m0patch_vers ${TMP_M0PATCH_VERS};" \
             "echo \"INFO: setting uboot_vers in environment...\"; " \
             "setenv uboot_vers ${TMP_UBOOT_VERS};" \
             "echo \"INFO: setting ubootenv_vers in environment...\"; " \
@@ -448,7 +504,7 @@
             "echo \"INFO: restoring kernel_vers in environment...\"; " \
             "setenv kernel_vers ${TMP_KERNEL_VERS};" \
         "fi; " \
-        "if test ${BOOT1_NEEDS_FLASHING} = yes || test ${UBOOT_NEEDS_FLASHING} = yes || test ${UBOOTENV_NEEDS_FLASHING} = yes; " \
+        "if test ${BOOT1_NEEDS_FLASHING} = yes || test ${M0PATCH_NEEDS_FLASHING} = yes || test ${UBOOT_NEEDS_FLASHING} = yes || test ${UBOOTENV_NEEDS_FLASHING} = yes; " \
             "then " \
             "echo \"INFO: saving environment...\"; " \
             "saveenv;" \
@@ -710,11 +766,12 @@
         "else " \
 	        "echo \"INFO: Bootcount != 1, not checking USB for FW update file\" ;" \
         "fi; " \
-        "if fwup fail || fwup update || test -z \\\\'${boot1_vers}\\\\' || test -z \\\\'${uboot_vers}\\\\' || test -z \\\\'${ubootenv_vers}\\\\' || test -z \\\\'${dts_vers}\\\\' || test -z \\\\'${rootfs_vers}\\\\' || test -z \\\\'${kernel_vers}\\\\'; " \
+        "if fwup fail || fwup update || test -z \\\\'${boot1_vers}\\\\' || test -z \\\\'${m0patch_vers}\\\\' || test -z \\\\'${uboot_vers}\\\\' || test -z \\\\'${ubootenv_vers}\\\\' || test -z \\\\'${dts_vers}\\\\' || test -z \\\\'${rootfs_vers}\\\\' || test -z \\\\'${kernel_vers}\\\\'; " \
             "then " \
             "if fwup fail; then echo \"INFO: Fail flag is set\"; fi; " \
             "if fwup update; then echo \"INFO: Update flag is set\"; fi; " \
             "if test -z \\\\'${boot1_vers}\\\\'; then echo \"INFO: boot1_vers is missing\"; fi; " \
+            "if test -z \\\\'${m0patch_vers}\\\\'; then echo \"INFO: m0patch_vers is missing\"; fi; " \
             "if test -z \\\\'${uboot_vers}\\\\'; then echo \"INFO: uboot_vers is missing\"; fi; " \
             "if test -z \\\\'${ubootenv_vers}\\\\'; then echo \"INFO: ubootenv_vers is missing\"; fi; " \
             "if test -z \\\\'${dts_vers}\\\\'; then echo \"INFO: dts_vers is missing\"; fi; " \
@@ -756,6 +813,7 @@
                 "UBOOT_NEEDS_FLASHING=no; " \
                 "UBOOTENV_NEEDS_FLASHING=no; " \
                 "BOOT1_NEEDS_FLASHING=no; " \
+                "M0PATCH_NEEDS_FLASHING=no; " \
                 "DTS_NEEDS_FLASHING=no; " \
                 "ROOTFS_NEEDS_FLASHING=no; " \
                 "KERNEL_NEEDS_FLASHING=no; " \
@@ -770,7 +828,7 @@
                 "run check_system_need_flashing; " \
                 "run flash_system_as_needed; " \
              "else " \
-                "if fwup fail || test -z \\\\'${boot1_vers}\\\\' || test -z \\\\'${uboot_vers}\\\\' || test -z \\\\'${ubootenv_vers}\\\\' || test -z \\\\'${dts_vers}\\\\' || test -z \\\\'${rootfs_vers}\\\\' || test -z \\\\'${kernel_vers}\\\\'; " \
+                "if fwup fail || test -z \\\\'${boot1_vers}\\\\' || test -z \\\\'${m0patch_vers}\\\\' || test -z \\\\'${uboot_vers}\\\\' || test -z \\\\'${ubootenv_vers}\\\\' || test -z \\\\'${dts_vers}\\\\' || test -z \\\\'${rootfs_vers}\\\\' || test -z \\\\'${kernel_vers}\\\\'; " \
                 "then " \
                     "sfu errstate; " \
                 "fi; " \
@@ -788,6 +846,7 @@
 #define SUE_FWUPDATE_BCM_BOOTCOMMAND \
 	"echo \"INFO: attempting SFU boot...\"; " \
 	"echo \"INFO: boot1 version: ${boot1_vers}\"; " \
+	"echo \"INFO: m0patch version: ${m0patch_vers}\"; " \
 	"echo \"INFO: U-boot version: ${uboot_vers}\"; " \
 	"echo \"INFO: zImage version: ${kernel_vers}\"; " \
 	"echo \"INFO: Rootfs version: ${rootfs_vers}\"; " \
