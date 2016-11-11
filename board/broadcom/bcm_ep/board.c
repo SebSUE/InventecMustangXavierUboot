@@ -61,7 +61,7 @@ int board_init(void)
 	 */
 	gd->bd->bi_boot_params = CONFIG_SYS_SDRAM_BASE + 0x100;
 
-	bbl_init();
+	//bbl_init();
 
 
 	run_command("ramdump", 0);

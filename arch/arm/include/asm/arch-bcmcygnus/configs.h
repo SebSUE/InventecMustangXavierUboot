@@ -16,7 +16,7 @@
 
 /* Size of Reserved Secure DRAM area*/
 #ifndef CONFIG_RESERVED_SEC_MEM
-#define CONFIG_RESERVED_SEC_MEM 0x00400000
+#define CONFIG_RESERVED_SEC_MEM 0x00600000
 #endif
 
 #define CONFIG_MISC_INIT_R
