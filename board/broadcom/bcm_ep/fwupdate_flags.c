@@ -7,7 +7,6 @@
 
 #include <asm/io.h>
 #include "board.h"
-#include <bcmiproc_bbl.h>
 
 /* offset indexes in RTC scratch0 register for each flag */
 #define UPDATE_FLAG_INDEX		0
@@ -32,9 +31,7 @@ static int flag_write( uint8_t index, uint8_t data)
 	uint32_t val = 0;
 	assert(index <= 3);
 
-	if (0 > bbl_reg_read(REG_SFUPDATE, &val)) {
-		val = getenv_ulong("sfuflags", 10, 0);
-	}
+	val = getenv_ulong("sfuflags", 10, 0);
 
 	switch (index) {
 	case UPDATE_FLAG_INDEX:
@@ -50,9 +47,7 @@ static int flag_write( uint8_t index, uint8_t data)
 		return 1;
 	}
 
-	if (0 > bbl_reg_write(REG_SFUPDATE, val)) {
-		setenv_ulong("sfuflags", val);
-	}
+	setenv_ulong("sfuflags", val);
 
 	return 0;
 }
@@ -65,9 +60,7 @@ static int flag_read(uint8_t index, uint8_t *data)
 	uint32_t valb = 0;
 	assert(index <= 3);
 
-	if (0 > bbl_reg_read(REG_SFUPDATE, &valb)) {
-		valb = getenv_ulong("sfuflags", 10, 0);
-	}
+	valb = getenv_ulong("sfuflags", 10, 0);
 
 	switch (index) {
 	case UPDATE_FLAG_INDEX:
